@@ -1,0 +1,78 @@
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
+load("@rules_cuda//cuda:defs.bzl", "cuda_library")
+
+filegroup(
+    name = "all",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+config_setting(
+    name = "cuda",
+    values = {"define": "cuda=enabled"},
+)
+cmake(
+    name = "kokkos_cmake",
+    build_args = ["-j8"],
+    cache_entries = {
+        "CMAKE_INSTALL_LIBDIR": "lib",
+     #   "Kokkos_ARCH_AMPERE80":"ON",
+    #    "Kokkos_ENABLE_HWLOC":"ON",
+       
+    }|select({
+        "//:cuda": { "Kokkos_ENABLE_CUDA":"ON"},
+        "//conditions:default":{"Kokkos_ENABLE_OPENMP":"ON"},
+    }),
+    env = {
+        "LD": "",
+    },
+    deps = select({
+       # "//:cuda": ["-L/home/henrik/spack/opt/spack/linux-x86_64_v4/cuda-13.0.2-wjw55jxpdig2sxkciqeg527gs6s42ity/targets/x86_64-linux/lib/stubs/","-lcuda"], # needed for linking in the right order
+       "//:cuda": [ "@cuda//:cuda",], # needed for linking in the right order
+        
+        "//conditions:default":[],
+    }),
+    linkopts=
+    select({
+       # "//:cuda": ["-L/home/henrik/spack/opt/spack/linux-x86_64_v4/cuda-13.0.2-wjw55jxpdig2sxkciqeg527gs6s42ity/targets/x86_64-linux/lib/stubs/","-lcuda"], # needed for linking in the right order
+       #"//:cuda": ["-lcuda"], # needed for linking in the right order
+        
+        "//conditions:default":[],
+    }),
+    install = True,
+    lib_name = "libkokkoscore",
+  #  out_static_libs=["libkokkoscore","libkokkossimd","libkokkoscontainers"],
+    lib_source = ":all",
+    visibility = ["//visibility:public"],
+    alwayslink = 1,
+)
+
+cuda_library(
+    name = "kokkos_core_hdrs_cuda",
+    hdrs =
+        glob(["core/src/*.hpp"]),
+ #   strip_include_prefix = "core/src",
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+cc_library(
+    name = "kokkos_core_hdrs",
+    hdrs =
+        glob(["core/src/*.hpp"]),
+ #   strip_include_prefix = "core/src",
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+cc_library(
+    name = "kokkos",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":kokkos_cmake",
+    ]+ select({
+        "//:cuda": [":kokkos_core_hdrs_cuda"],  # needed for linking in the right order
+        "//conditions:default": [":kokkos_core_hdrs"],
+    }),
+)

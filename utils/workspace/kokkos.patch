@@ -1,0 +1,15 @@
+diff --git a/bin/kokkos_launch_compiler b/bin/kokkos_launch_compiler
+index ee3c29e96..c9729dca1 100755
+--- a/bin/kokkos_launch_compiler
++++ b/bin/kokkos_launch_compiler
+@@ -87,7 +87,9 @@ shift
+ if [[ "${KOKKOS_DEPENDENCE}" -eq "0" || "${CXX_COMPILER}" != $(which "${1}") ]]; then
+     debug-message "$@"
+     # the command does not depend on Kokkos so just execute the command w/o re-directing to ${KOKKOS_COMPILER}
+-    exec "$@"
++    if [[ "${1}" != ":" ]]; then
++        exec "$@"
++    fi
+ else
+     # the executable is the C++ compiler, so we need to re-direct to ${KOKKOS_COMPILER}
+     if [ ! -f "${KOKKOS_COMPILER}" ]; then

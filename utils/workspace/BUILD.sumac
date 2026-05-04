@@ -1,0 +1,56 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cuda//cuda:defs.bzl", "cuda_library", "cuda_objects")
+
+cuda_objects(
+    name = "match",
+    srcs = [
+        "graph_cuda.cu",
+    ],
+    hdrs = [
+        "cuda_wrapper.hpp",
+        "match.h",
+        "types.hpp",
+    ],
+    defines = ["NGPU=1"],
+    deps = ["@nccl//:nccl_include_cuda"],
+)
+
+cuda_library(
+    rdc=True,
+
+    name = "sumac_internal",
+    srcs = [
+        "clustering.cpp",
+        "graph.cpp",
+        "graph_gpu.cpp",
+        "heap.cpp",
+    ],
+    hdrs = [
+        "clustering.hpp",
+        "cuda_wrapper.hpp",
+        "graph.hpp",
+        "graph_cuda.hpp",
+        "graph_gpu.hpp",
+        "heap.hpp",
+        "match.h",
+        "types.hpp",
+    ],
+    defines = ["NGPU=1"],
+    linkopts = ["-fopenmp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":match",
+    ],
+)
+
+cc_library(
+    name = "sumac",
+    copts = ["-fopenmp"],
+    defines = ["NGPU=1"],
+    linkopts = ["-fopenmp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sumac_internal",
+        "@nccl_prebuilt",
+    ],
+)

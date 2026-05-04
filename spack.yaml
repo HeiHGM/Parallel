@@ -1,0 +1,16 @@
+# This is a Spack Environment file.
+#
+# It describes a set of packages to be installed, along with
+# configuration settings.
+spack:
+  # add package specs to the `specs` list
+  specs:
+    # - bazel%gcc
+    - kokkos-nvcc-wrapper@4.5.1
+    - cuda@12.8
+    - nccl@2.29.2-1 cuda_arch=90
+  view: true
+  concretizer:
+    unify: when_possible
+  config:
+    install_missing_compilers: true

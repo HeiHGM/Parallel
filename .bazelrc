@@ -1,0 +1,24 @@
+build --action_env=BAZEL_CXXOPTS=-std=c++20
+build --cxxopt=-std=c++20 --cxxopt=-frecord-gcc-switches #--cxxopt=-stdlib=libc++ # for mac
+build:opt --copt=-O3 --cxxopt=-O3 --cxxopt=-march=native --cxxopt=-mavx --cxxopt=-finline-functions  --cxxopt=-funroll-loops
+build  --stamp --workspace_status_command="$PWD/stamp.sh"
+build:debug -c dbg
+build:debug --features=oso_prefix_is_pwd
+common --enable_bzlmod
+# build --features=layering_check
+build:asan --strip=never
+build:asan --copt -fsanitize=address
+build:asan --copt -DADDRESS_SANITIZER
+build:asan --copt -O1
+build:asan --copt -g
+build:asan --copt -fno-omit-frame-pointer
+build:asan --linkopt -fsanitize=address
+# Enable debug symbols and keep frame pointers for nsys backtraces
+build:profiling -c opt
+build:profiling --copt=-g
+build:profiling --copt=-fno-omit-frame-pointer
+build:profiling --strip=never
+
+# If you are using NVCC for CUDA files, ensure it also passes these to the host compiler
+build:profiling --cxxopt=-fno-omit-frame-pointer
+build:profiling --cxxopt=-g

@@ -1,0 +1,5 @@
+cc_import(
+    name = "nccl_prebuilt",
+    static_library = "lib/libnccl_static.a",
+    visibility = ["//visibility:public"],
+)

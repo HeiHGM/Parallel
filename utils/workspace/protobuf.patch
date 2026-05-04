@@ -1,0 +1,28 @@
+diff --git a/src/google/protobuf/message_lite.h b/src/google/protobuf/message_lite.h
+index 678c632df..f28be8432 100644
+--- src/google/protobuf/message_lite.h
++++ src/google/protobuf/message_lite.h
+@@ -280,7 +280,7 @@ template <typename T>
+ using MessageTraits = decltype(MessageTraitsImpl::value<T>);
+ 
+ struct EnumTraitsImpl {
+-  struct Undefined;
++  struct Undefined{};
+   template <typename T>
+   static Undefined value;
+ };
+diff --git a/src/google/protobuf/unknown_field_set.h b/src/google/protobuf/unknown_field_set.h
+index 15d3013bd..5063640ad 100644
+--- src/google/protobuf/unknown_field_set.h
++++ src/google/protobuf/unknown_field_set.h
+@@ -424,8 +424,8 @@ template <>
+ struct InternalMetadata::Container<UnknownFieldSet>
+     : public InternalMetadata::ContainerBase {
+   UnknownFieldSet unknown_fields;
+-
+-  explicit Container(Arena* input_arena)
++  Container(){}
++   Container(Arena* input_arena)
+       : unknown_fields(InternalVisibility{}, input_arena) {}
+ 
+   using InternalArenaConstructable_ = void;

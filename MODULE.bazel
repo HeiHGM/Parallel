@@ -1,0 +1,99 @@
+bazel_dep(name = "rules_proto", version = "7.1.0")
+bazel_dep(name = "abseil-cpp", version = "20240722.0")
+bazel_dep(name = "rules_foreign_cc", version = "0.13.0")
+bazel_dep(name = "googletest", version = "1.15.2")
+bazel_dep(name = "protobuf", version = "30.0-rc1")
+single_version_override(
+    module_name = "protobuf",
+    patches = ["//utils/workspace:protobuf.patch"],
+    version = "33.4",
+    # patch_cmds = ["sed -i '218d' src/google/protobuf/arena.h"],
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "rules_python", version = "1.6.3")
+
+# Add the required 'platforms' dependency
+bazel_dep(name = "platforms", version = "1.0.0")  # Use 1.0.0 or the latest stable version
+bazel_dep(name = "rules_cc", version = "0.2.14")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "my_deps",
+    python_version = "3.11",
+    requirements_lock = "//tools/plot:req.txt",
+)
+use_repo(pip, "my_deps")
+
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+new_local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
+
+new_git_repository(
+    name = "matplotlibcpp17",
+    build_file = "//utils/workspace:BUILD.matplotlibcpp17",
+    commit = "779f108f192a27761cae3724929850fe65de625c",
+    remote = "https://github.com/soblin/matplotlibcpp17.git",
+)
+
+bazel_dep(name = "pybind11_bazel", version = "3.0.0")
+
+new_git_repository(
+    name = "sumac",
+    build_file = "//utils/workspace:BUILD.sumac",
+    commit = "9d454aebfb6eff8a0f948803967f249f314521b5",
+    patch_args = ["-p1"],
+    patches = ["//utils/workspace:sumac.patch"],
+    remote = "https://github.com/ECP-ExaGraph/sumac.git",
+    strip_prefix = "LDgpu",
+)
+
+new_git_repository(
+    name = "nccl",
+    build_file = "//utils/workspace:BUILD.nccl",
+    commit = "6e24ef4e1f1eac9f104d115ef65429f179924ee7",
+    patch_args = ["-p1"],
+    patches = ["//utils/workspace:nccl.patch"],
+    #strip_prefix = "LDgpu",
+    remote = "https://github.com/NVIDIA/nccl.git",
+)
+
+bazel_dep(name = "rules_cuda", version = "0.3.0")
+
+cuda = use_extension("@rules_cuda//cuda:extensions.bzl", "toolchain")
+cuda.toolkit(
+    name = "cuda",
+    toolkit_path = "",
+)
+use_repo(cuda, "cuda")
+
+http_archive(
+    name = "kokkos",
+    build_file = "//utils/workspace:BUILD.kokkos",
+    patch_args = ["-p1"],
+    patch_tool = "patch",
+    patches = ["//utils/workspace:kokkos.patch"],
+    strip_prefix = "kokkos-b601b82d0f4b4491aeafb7b19cde557e92aa761d",
+    urls = ["https://github.com/kokkos/kokkos/archive/b601b82d0f4b4491aeafb7b19cde557e92aa761d.zip"],
+)
+
+new_local_repository(
+    name = "nccl_prebuilt",
+    build_file = "//utils/workspace:BUILD.nccl_prebuilt",
+    path = ".spack-env/view/",
+)
+
+new_git_repository(
+    name = "gbbs",
+    commit = "bd48872385ad907010417bfa939f4fca04e563b8",
+    remote = "https://github.com/ParAlg/gbbs.git",
+)
+
+http_archive(
+    name = "parlaylib",
+    sha256 = "be384da4da215111f0f6ea3d4b6d276d2879e08cc161e1a16df8dd57d5198f9f",
+    strip_prefix = "parlaylib-bazel_v2/include/",
+    urls = ["https://github.com/cmuparlay/parlaylib/archive/refs/heads/bazel_v2.tar.gz"],
+)

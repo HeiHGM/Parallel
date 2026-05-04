@@ -1,0 +1,107 @@
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("@rules_cuda//cuda:defs.bzl", "cuda_library","cuda_objects")
+
+package(default_visibility = ["//visibility:public"])
+
+# NOTE: cuda_library cuda_objects is only used in macros defined nccl.bzl
+load(":nccl.bzl", "if_cuda_clang", "nccl_collectives", "perf_binaries")
+
+expand_template(
+    name = "nccl_h",
+    out = "src/include/nccl.h",
+    substitutions = {
+        "${nccl:Major}": "2",
+        "${nccl:Minor}": "18",
+        "${nccl:Patch}": "3",
+        "${nccl:Suffix}": "",
+        "${nccl:Version}": "21803",  # NCCL_VERSION(X,Y,Z) ((X) * 10000 + (Y) * 100 + (Z))
+    },
+    template = "src/nccl.h.in",
+)
+
+cc_library(
+    name = "nccl_include",
+    hdrs = [
+        ":nccl_h",
+    ] + glob([
+        "src/include/**/*.h",
+        "src/include/**/*.hpp",
+    ]),
+    includes = [
+        # this will add both src/include in repo and
+        # bazel-out/<compilation_mode>/bin/src/include to include paths
+        # so the previous expand_template generate nccl.h to the very path!
+        "src/include",
+    ],
+)
+cuda_library(
+    name = "nccl_include_cuda",
+    hdrs = [
+        ":nccl_h",
+    ] + glob([
+        "src/include/**/*.h",
+        "src/include/**/*.hpp",
+    ]),
+    includes = [
+        # this will add both src/include in repo and
+        # bazel-out/<compilation_mode>/bin/src/include to include paths
+        # so the previous expand_template generate nccl.h to the very path!
+        "src/include",
+    ],
+)
+
+filegroup(
+    name = "collective_dev_hdrs",
+    srcs = [
+        "src/collectives/device/all_gather.h",
+        "src/collectives/device/all_reduce.h",
+        "src/collectives/device/broadcast.h",
+        "src/collectives/device/common.h",
+        "src/collectives/device/common_kernel.h",
+        "src/collectives/device/gen_rules.sh",
+        "src/collectives/device/op128.h",
+        "src/collectives/device/primitives.h",
+        "src/collectives/device/prims_ll.h",
+        "src/collectives/device/prims_ll128.h",
+        "src/collectives/device/prims_simple.h",
+        "src/collectives/device/reduce.h",
+        "src/collectives/device/reduce_kernel.h",
+        "src/collectives/device/reduce_scatter.h",
+        "src/collectives/device/sendrecv.h",
+    ],
+)
+
+nccl_collectives(
+    name = "collectives_dev",
+    hdrs = [":collective_dev_hdrs"],
+    # this must be manually disabled if cuda version is lower than 11.
+    use_bf16 = 1,
+    deps = [":nccl_include"],
+)
+
+cc_binary(
+    name = "nccl",
+    srcs = glob(
+        [
+            "src/*.cc",
+            "src/collectives/*.cc",
+            "src/graph/*.cc",
+            "src/graph/*.h",
+            "src/misc/*.cc",
+            "src/transport/*.cc",
+        ],
+        exclude = [
+            # https://github.com/NVIDIA/nccl/issues/658
+            "src/enhcompat.cc",
+        ],
+    ),
+    copts = if_cuda_clang(["-xcu"]),
+    linkshared = 1,
+    linkstatic = 1,
+    deps = [
+        ":collectives_dev",
+        "@rules_cuda//cuda:runtime",
+    ],
+)
+
+perf_binaries(name = "perf_binaries")
