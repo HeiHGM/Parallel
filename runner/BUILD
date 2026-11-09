@@ -37,6 +37,7 @@ cc_library(
     linkopts = ["-fopenmp"],
     deps = [
         "//app:app_io_cc_proto",
+        "//app/algorithms/bmatching",
         "//app/algorithms/matching",
         "//app/algorithms/streaming/matching",
         "//utils:logging",
@@ -61,6 +62,7 @@ cuda_library(
     #}),
     deps = [
         "//app:app_io_cc_proto",
+        "//app/algorithms/bmatching",
         "//app/algorithms/matching",
         "//app/algorithms/streaming/matching",
         "//utils:logging",

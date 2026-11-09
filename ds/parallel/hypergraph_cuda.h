@@ -24,22 +24,26 @@ struct CudaHypergraph {
   // Device-Memory
   RefType* d_node_offsets;
   RefType* d_edge_offsets;
-  WeightType* d_edge_weights;
+  WeightType *d_edge_weights, *d_node_weights;
   NodeType* d_edge_to_node;
   EdgeType* d_node_to_edge;
 
   // Host-Memory
   RefType* h_node_offsets;
   RefType* h_edge_offsets;
-  WeightType* h_edge_weights;
+  WeightType *h_edge_weights, *h_node_weights;
   NodeType* h_edge_to_node;
   EdgeType* h_node_to_edge;
 
-  size_t m, n;
+  size_t m, n, pins_;
 
  public:
+  size_t Pins() { return pins_; }
+  EdgeType* hNodeToPins() { return h_node_to_edge; }
+  WT nodeWeight(NT n) { return h_node_weights[n]; }
+  WeightType* dNodeWeights() { return d_node_weights; }
   // Constructor
-  CudaHypergraph(size_t n, size_t m, size_t pins) : m(m), n(n) {
+  CudaHypergraph(size_t n, size_t m, size_t pins) : m(m), n(n), pins_(pins) {
     // std::cout << "Initializing CUDA Hypergraph Data Structure (new)..." << n << " " << m << " "
     //           << pins << std::endl;
 
@@ -47,6 +51,8 @@ struct CudaHypergraph {
     cudaMalloc(&d_node_offsets, (n + 1) * sizeof(RefType));
     cudaMalloc(&d_edge_offsets, (m + 1) * sizeof(RefType));
     cudaMalloc(&d_edge_weights, m * sizeof(WeightType));
+    cudaMalloc(&d_node_weights, n * sizeof(WeightType));
+
     cudaMalloc(&d_edge_to_node, pins * sizeof(NodeType));
     cudaMalloc(&d_node_to_edge, pins * sizeof(EdgeType));
 
@@ -54,6 +60,8 @@ struct CudaHypergraph {
     h_node_offsets = new RefType[n + 1];
     h_edge_offsets = new RefType[m + 1];
     h_edge_weights = new WeightType[m];
+    h_node_weights = new WeightType[n];
+
     h_edge_to_node = new NodeType[pins];
     h_node_to_edge = new EdgeType[pins];
 
@@ -68,6 +76,8 @@ struct CudaHypergraph {
     cudaFree(d_node_offsets);
     cudaFree(d_edge_offsets);
     cudaFree(d_edge_weights);
+    cudaFree(d_node_weights);
+
     cudaFree(d_edge_to_node);
     cudaFree(d_node_to_edge);
 
@@ -75,6 +85,8 @@ struct CudaHypergraph {
     delete[] h_node_offsets;
     delete[] h_edge_offsets;
     delete[] h_edge_weights;
+    delete[] h_node_weights;
+
     delete[] h_edge_to_node;
     delete[] h_node_to_edge;
 
@@ -101,6 +113,7 @@ struct CudaHypergraph {
     // Initialize node data
     offset = 0;
     for (auto n : ref.nodes()) {
+      h_node_weights[n] = ref.nodeWeight(n);
       h_node_offsets[n] = offset;
       for (auto p : ref.incidentEdges(n)) {
         h_node_to_edge[offset++] = p;
@@ -122,6 +135,8 @@ struct CudaHypergraph {
 
     // Copy data from host to device
     cudaMemcpy(d_edge_weights, h_edge_weights, m * sizeof(WeightType), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_node_weights, h_node_weights, n * sizeof(WeightType), cudaMemcpyHostToDevice);
+
     cudaMemcpy(d_edge_offsets, h_edge_offsets, (m + 1) * sizeof(RefType), cudaMemcpyHostToDevice);
     cudaMemcpy(d_edge_to_node, h_edge_to_node, pincount * sizeof(NodeType), cudaMemcpyHostToDevice);
     cudaMemcpy(d_node_offsets, h_node_offsets, (n + 1) * sizeof(RefType), cudaMemcpyHostToDevice);
@@ -157,6 +172,8 @@ struct CudaHypergraph {
 
   // Returns edge weight
   __host__ WeightType* edgeWeightD() const { return d_edge_weights; }
+  __host__ WeightType* edgeWeightH() const { return h_edge_weights; }
+
   __host__ WeightType edgeWeight(EdgeType e) const {
     // DO not sync everytime
     //  Make sure host memory is updated
@@ -174,6 +191,8 @@ struct CudaHypergraph {
 
   // Other getters
   __host__ RefType* nodeOffsetsD() const { return d_node_offsets; }
+  __host__ RefType* nodeOffsetsH() const { return h_node_offsets; }
+
   __host__ RefType* edgeOffsetsD() const { return d_edge_offsets; }
   __host__ NodeType* edgeToNodeD() const { return d_edge_to_node; }
   __host__ EdgeType* nodeToEdgeD() const { return d_node_to_edge; }
@@ -187,6 +206,7 @@ struct CudaHypergraph {
   // Returns all edges (pointer-range)
   // __host__ PointerRange<size_t> edges_value_range() const { return PointerRange<size_t>(0, m); }
   __host__ auto edges() const { return Range<utils::SimpleIterator>(0UL, m); }
+  __host__ auto nodes() const { return Range<utils::SimpleIterator>(0UL, n); }
 };
 }  // namespace parallel
 }  // namespace ds

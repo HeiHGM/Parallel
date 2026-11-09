@@ -498,6 +498,10 @@ absl::Status VisualisationTool::plot(std::string root_path) {
       if (auto st = categorial_bar_plot(data, vis); !st.ok()) {
         return st;
       }
+    } else if (vis.type() == "categorial_bar_plot2") {
+      if (auto st = categorial_bar_plot2(data, vis); !st.ok()) {
+        return st;
+      }
     } else if (vis.type() == "scatter_debug") {
       if (auto st = scatter_debug_plot(data, vis); !st.ok()) {
         return st;
@@ -792,6 +796,29 @@ absl::Status VisualisationTool::table_internal(Visualisation vis, std::vector<Re
     data = data2;
   }
   data = filter_exactness(data, vis);
+  if (bool_params["transform_sort"]) {
+    std::string default_cat = "Natural";
+    std::map<std::string, std::string> substr_to_cat;
+    if (auto s = string_params["default_cat"]; s != "") {
+      default_cat = s;
+    }
+    for (int i = 0; i < 10; i++) {
+      if (auto s = string_params["substr_to_cat" + std::to_string(i)]; s != "") {
+        std::vector<std::string> res = absl::StrSplit(s, "|");
+        substr_to_cat[res[0]] = res[1];
+      }
+    }
+    for (Result& d : data) {
+      if (d.run_config().capacity() == 0) {
+        d.mutable_run_config()->set_capacity(1);
+      }
+      for (const auto& [k, v] : substr_to_cat) {
+        if (absl::StrContains(d.hypergraph().name(), k)) {
+          d.mutable_hypergraph()->set_sort(v);
+        }
+      }
+    }
+  }
   GroupBy<Result, std::array<std::string, 2>> groupby_instance_run_config(
       data, [](Result result) -> std::array<std::string, 2> {
         return {result.hypergraph().name(), result.run_config().short_name()};
@@ -1172,9 +1199,18 @@ absl::Status VisualisationTool::categorial_bar_plot_internal(Visualisation vis,
   auto display_labels = vis.display_labels();
 
   data = filter_exactness(data, vis);
+  std::string x_axis_prop = "runConfig_shortName";
+  if (auto& val = string_params["x_axis_prop"]; val != "") {
+    x_axis_prop = val;
+  }
+  std::string category_prop = "hypergraph_name";
+  if (auto& val = string_params["category_prop"]; val != "") {
+    category_prop = val;
+  }
   GroupBy<Result, std::array<std::string, 2>> grouped(
-      data, [](Result r) -> std::array<std::string, 2> {
-        return {r.run_config().short_name(), r.hypergraph().name()};
+      data, [&](Result r) -> std::array<std::string, 2> {
+        return {performance_characteristics.at(x_axis_prop)(r).to_string(),
+                performance_characteristics.at(category_prop)(r).to_string()};
       });
   auto gr_avg = grouped.avg<double>([&](Result res) {
     return performance_characteristics.at(vis.performance_characteristic())(res).to_double();
@@ -1210,21 +1246,23 @@ absl::Status VisualisationTool::categorial_bar_plot_internal(Visualisation vis,
     std::cout << c << std::endl;
   }
   std::cout << in_all.size() << " kept" << std::endl;
-  GroupBy<Result, std::pair<std::string, std::string>> grouped2(data, [](auto r) {
+  GroupBy<Result, std::pair<std::string, std::string>> grouped2(data, [&](auto r) {
     int category = 0;
     if (absl::StrContains(r.hypergraph().name(), "out50")) {
       category = 2;
     }
-    return std::make_pair(r.run_config().short_name(), r.hypergraph().name());
+    return std::make_pair(performance_characteristics.at(x_axis_prop)(r).to_string(),
+                          performance_characteristics.at(category_prop)(r).to_string());
   });
 
-  auto results =
-      grouped2.having([&](auto d, const auto& v) { return in_all.contains(d.second); })
-          .geo_mean_log<double>([&](auto r) -> double {
-            return gr_avg[{r.run_config().short_name(), r.hypergraph().name()}].getValue();
-            // return
-            // performance_characteristics.at(vis.performance_characteristic())(r).to_double();
-          });
+  auto results = grouped2.having([&](auto d, const auto& v) { return in_all.contains(d.second); })
+                     .geo_mean_log<double>([&](auto r) -> double {
+                       return gr_avg[{performance_characteristics.at(x_axis_prop)(r).to_string(),
+                                      performance_characteristics.at(category_prop)(r).to_string()}]
+                           .getValue();
+                       // return
+                       // performance_characteristics.at(vis.performance_characteristic())(r).to_double();
+                     });
   std::vector<std::pair<const std::pair<std::string, std::string>, double>> res_v;
   std::copy(results.begin(), results.end(), std::back_inserter(res_v));
   std::map<std::string, std::string> substr_to_cat;
@@ -1269,6 +1307,7 @@ absl::Status VisualisationTool::categorial_bar_plot_internal(Visualisation vis,
   if (bool_params["grouped_by_top"]) {
     results = results3;
   }
+
   std::map<std::string, double> cat_max;
   std::string relativ_to = string_params["relative_to"];
 
@@ -1279,10 +1318,13 @@ absl::Status VisualisationTool::categorial_bar_plot_internal(Visualisation vis,
       cat_max[k.second] = std::max(cat_max[k.second], v);
     }
   }
+  double elems = cat_max.size() + 2;
 
   bool norm_by_top = bool_params["norm_by_top"];
   bool as_speedup = bool_params["as_speedup"];
   double y_max = 0;
+  std::ofstream debug_file(vis.folder_name() + "/" + vis.file_prefix() + "_catbar_" +
+                           std::to_string(cap) + "_" + sort + ".txt");
   for (auto [k, v] : results) {
     if (relativ_to == k.first) {
       continue;
@@ -1292,7 +1334,7 @@ absl::Status VisualisationTool::categorial_bar_plot_internal(Visualisation vis,
       v = v / cat_max[k.second];
     }
     y_max = std::max(v, y_max);
-    std::cout << k.first << " " << k.second << " " << v << std::endl;
+    debug_file << k.first << " " << k.second << " " << v << std::endl;
     results_2[k.second].push_back(v);
     if (!hnames.contains(k.first)) {
       hnames.insert(k.first);
@@ -1301,7 +1343,7 @@ absl::Status VisualisationTool::categorial_bar_plot_internal(Visualisation vis,
         titel = k.first;
       }
       labels_.push_back(titel);
-      offs.push_back(width * cat_max.size() * 0.5 - 0.25 + k2 * width * 8);
+      offs.push_back(width * cat_max.size() * 0.5 - 0.25 + k2 * width * elems);
       k2++;
     }
   }
@@ -1309,10 +1351,229 @@ absl::Status VisualisationTool::categorial_bar_plot_internal(Visualisation vis,
     auto offset = width * multiplier;
     std::vector<double> ofs2;
     for (int i = 0; i < k2; i++) {
-      ofs2.push_back(i * 4 + offset);
+      ofs2.push_back(i * elems / 2 + offset);
     }
     std::cout << category << " " << labels.size() << " " << v.size() << std::endl;
-    auto rects = ax.bar(Args(ofs2, v, width), Kwargs("label"_a = category));
+    auto& titel = display_labels[category];
+    if (titel == "") {
+      titel = category;
+    }
+    auto rects = ax.bar(Args(ofs2, v, width), Kwargs("label"_a = titel));
+    multiplier++;
+  }
+  ax.set_xticks(Args(offs, labels_) /*, Kwargs("rotation"_a = 90.0)*/);
+  if (!bool_params["legend_off"]) {
+    ax.legend();
+  }
+  ax.set_title(Args(prepare_title(vis, cap, grouped.max_count())));
+  if (auto y_lower = double_params["y_lower_limit"]; y_lower != 0) {
+    ax.set_ylim(Args(y_lower, y_max * 1.05));
+  }
+  if (bool_params["y_log_scale"]) {
+    ax.set_yscale(Args("log"));
+  }
+  std::string legend_pos = string_params["legend_pos"] == "" ? "best" : string_params["legend_pos"];
+  if (!bool_params["legend_off"]) {
+    if (bool_params["legend_outside"]) {
+      ax.legend(Args(), Kwargs("loc"_a = legend_pos, "bbox_to_anchor"_a = py::make_tuple(1, 0.5)));
+    } else {
+      ax.legend(Args(), Kwargs("loc"_a = legend_pos));
+    }
+  }
+  fig.savefig(Args(vis.folder_name() + "/" + vis.file_prefix() + "_catbar_" + std::to_string(cap) +
+                   "_" + sort + ".pdf"),
+              Kwargs("bbox_inches"_a = "tight"));
+  fig.savefig(Args(vis.folder_name() + "/" + vis.file_prefix() + "_catbar_" + std::to_string(cap) +
+                   "_" + sort + ".pgf"),
+              Kwargs("bbox_inches"_a = "tight"));
+  save_textproto(vis.folder_name() + "/" + vis.file_prefix() + "_catbar_" + std::to_string(cap) +
+                     "_" + sort + ".textproto",
+                 vis);
+  std::cout << "Plotted "
+            << vis.folder_name() + "/" + vis.file_prefix() + "_catbar_" + std::to_string(cap) +
+                   "_" + sort + ".pdf"
+            << std::endl;
+  std::cout << "Plotted "
+            << vis.folder_name() + "/" + vis.file_prefix() + "_catbar_" + std::to_string(cap) +
+                   "_" + sort + ".pgf"
+            << std::endl;
+  return absl::OkStatus();
+}
+absl::Status VisualisationTool::categorial_bar_plot2_internal(Visualisation vis,
+                                                              std::vector<Result>& data,
+                                                              std::vector<FailedExperiment>& failed,
+                                                              std::string sort, int cap) {
+  auto bool_params = vis.bool_params();
+  auto string_params = vis.string_params();
+
+  auto double_params = vis.double_params();
+  auto display_labels = vis.display_labels();
+
+  data = filter_exactness(data, vis);
+  std::string x_axis_prop = "runConfig_shortName";
+  if (auto& val = string_params["x_axis_prop"]; val != "") {
+    x_axis_prop = val;
+  }
+  std::string category_prop = "hypergraph_name";
+  if (auto& val = string_params["category_prop"]; val != "") {
+    category_prop = val;
+  }
+  GroupBy<Result, std::array<std::string, 2>> grouped(
+      data, [&](Result r) -> std::array<std::string, 2> {
+        return {performance_characteristics.at(x_axis_prop)(r).to_string(),
+                performance_characteristics.at(category_prop)(r).to_string()};
+      });
+  auto gr_avg = grouped.avg<double>([&](Result res) {
+    return performance_characteristics.at(vis.performance_characteristic())(res).to_double();
+  });
+  if (string_params["aggregator"] == "median") {
+    std::cout << "Using median" << std::endl;
+    gr_avg = grouped.median<double>([&](Result res) {
+      return performance_characteristics.at(vis.performance_characteristic())(res).to_double();
+    });
+  }
+  GroupBy<typename decltype(gr_avg)::iterator::value_type, std::string> grouped_by_hname(
+      gr_avg, [](auto res) { return res.first[1]; });
+  GroupBy<typename decltype(gr_avg)::iterator::value_type, std::string> grouped_by_name(
+      gr_avg, [](auto res) { return res.first[0]; });
+  auto hypergraph_c = grouped_by_hname.max_count();
+
+  std::set<std::string> in_all = grouped_by_hname
+                                     .having([&](auto group, const auto& data) {
+                                       bool zero = false;
+                                       for (const auto& [_, s] : data) {
+                                         if (s == 0.0 || std::isnan(s.getValue())) {
+                                           zero = true;
+                                         }
+                                       }
+                                       return !zero && (data.size() == hypergraph_c);
+                                     })
+                                     .keys();
+  std::set<std::string> not_in_all =
+      grouped_by_hname
+          .having([&](auto group, const auto& data) { return (data.size() != hypergraph_c); })
+          .keys();
+  for (auto& c : not_in_all) {
+    std::cout << c << std::endl;
+  }
+  std::cout << in_all.size() << " kept" << std::endl;
+  GroupBy<Result, std::pair<std::string, std::string>> grouped2(data, [&](auto r) {
+    int category = 0;
+    if (absl::StrContains(r.hypergraph().name(), "out50")) {
+      category = 2;
+    }
+    return std::make_pair(performance_characteristics.at(x_axis_prop)(r).to_string(),
+                          performance_characteristics.at(category_prop)(r).to_string());
+  });
+
+  auto results = grouped2.having([&](auto d, const auto& v) { return in_all.contains(d.second); })
+                     .geo_mean_log<double>([&](auto r) -> double {
+                       return gr_avg[{performance_characteristics.at(x_axis_prop)(r).to_string(),
+                                      performance_characteristics.at(category_prop)(r).to_string()}]
+                           .getValue();
+                       // return
+                       // performance_characteristics.at(vis.performance_characteristic())(r).to_double();
+                     });
+  std::vector<std::pair<const std::pair<std::string, std::string>, double>> res_v;
+  std::copy(results.begin(), results.end(), std::back_inserter(res_v));
+  std::map<std::string, std::string> substr_to_cat;
+  std::string default_cat = "Natural";
+  if (auto s = string_params["default_cat"]; s != "") {
+    default_cat = s;
+  }
+  for (int i = 0; i < 10; i++) {
+    if (auto s = string_params["substr_to_cat" + std::to_string(i)]; s != "") {
+      std::vector<std::string> res = absl::StrSplit(s, "|");
+      substr_to_cat[res[0]] = res[1];
+    }
+  }
+  if (substr_to_cat.empty()) {
+    substr_to_cat["asc"] = "Ascending";
+    substr_to_cat["desc"] = "Descending";
+  }
+  GroupBy<std::pair<const std::pair<std::string, std::string>, double>,
+          std::pair<std::string, std::string>>
+      gr3(res_v, [&](auto val) {
+        std::string category = default_cat;
+        for (const auto& [subs, label] : substr_to_cat) {
+          if (absl::StrContains(val.first.second, subs)) {
+            category = label;
+          }
+        }
+        auto s = val.first.first;
+        return std::make_pair<std::string, std::string>(std::move(s), std::move(category));
+      });
+  auto results3 = gr3.geo_mean_log<double>([](auto v) { return v.second; });
+  auto [fig, ax] = plt.subplots();
+  fig.unwrap().attr("set_figwidth")(*Args(double_params["fig_width_inch"]));
+  fig.unwrap().attr("set_figheight")(*Args(double_params["fig_height_inch"]));
+  double multiplier = 0;
+  double width = 0.5;
+  std::vector<std::string> labels = {"Lex", "Lex+Out50", "Lex+Top50"};
+  std::map<std::string, std::vector<double>> results_2;
+  std::vector<std::string> labels_;
+  std::vector<double> offs;
+  std::set<std::string> hnames;
+  int k2 = 0;
+  if (bool_params["grouped_by_top"]) {
+    results = results3;
+  }
+
+  std::map<std::string, std::map<int, double>> cat_max;
+  std::string relativ_to = string_params["relative_to"];
+
+  for (auto [k, v] : results) {
+    if (absl::StrContains(k.first, relativ_to)) {
+      std::vector<std::string> div = absl::StrSplit(k.first, "r");
+      cat_max[k.second][std::atoi(div.back().c_str())] = v;
+    } else if (relativ_to == "") {
+      cat_max[k.second][0] = std::max(cat_max[k.second][0], v);
+    }
+  }
+  double elems = cat_max.size() + 2;
+
+  bool norm_by_top = bool_params["norm_by_top"];
+  bool as_speedup = bool_params["as_speedup"];
+  double y_max = 0;
+  std::ofstream debug_file(vis.folder_name() + "/" + vis.file_prefix() + "_catbar_" +
+                           std::to_string(cap) + "_" + sort + ".txt");
+  for (auto [k, v] : results) {
+    if (absl::StrContains(k.first, relativ_to)) {
+      continue;
+    } else if (relativ_to != "") {
+      std::vector<std::string> div = absl::StrSplit(k.first, "r");
+
+      v = as_speedup ? (cat_max[k.second][std::atoi(div.back().c_str())] / v)
+                     : (v / cat_max[k.second][std::atoi(div.back().c_str())]);
+    } else if (norm_by_top) {
+      v = v / cat_max[k.second][0];
+    }
+    y_max = std::max(v, y_max);
+    debug_file << k.first << " " << k.second << " " << v << std::endl;
+    results_2[k.second].push_back(v);
+    if (!hnames.contains(k.first)) {
+      hnames.insert(k.first);
+      auto& titel = display_labels[k.first];
+      if (titel == "") {
+        titel = k.first;
+      }
+      labels_.push_back(titel);
+      offs.push_back(width * cat_max.size() * 0.5 - 0.25 + k2 * width * elems);
+      k2++;
+    }
+  }
+  for (auto [category, v] : results_2) {
+    auto offset = width * multiplier;
+    std::vector<double> ofs2;
+    for (int i = 0; i < k2; i++) {
+      ofs2.push_back(i * elems / 2 + offset);
+    }
+    std::cout << category << " " << labels.size() << " " << v.size() << std::endl;
+    auto& titel = display_labels[category];
+    if (titel == "") {
+      titel = category;
+    }
+    auto rects = ax.bar(Args(ofs2, v, width), Kwargs("label"_a = titel));
     multiplier++;
   }
   ax.set_xticks(Args(offs, labels_) /*, Kwargs("rotation"_a = 90.0)*/);
@@ -1533,7 +1794,6 @@ absl::Status VisualisationTool::table(std::vector<ExperimentResult>& data, Visua
   auto bool_params = vis.bool_params();
   std::set<std::string> index, pivot;
   auto string_params = vis.string_params();
-
   for (int i = 0; i < 10; i++) {
     std::stringstream s;
     s << "index" << i;
@@ -1728,6 +1988,31 @@ absl::Status VisualisationTool::categorial_bar_plot(std::vector<ExperimentResult
       }
     } else {
       if (auto plotted = categorial_bar_plot_internal(vis, data_points, error_points, sort);
+          !plotted.ok()) {
+        return plotted;
+      }
+    }
+  }
+  return absl::OkStatus();
+}
+absl::Status VisualisationTool::categorial_bar_plot2(std::vector<ExperimentResult>& data,
+                                                     Visualisation vis) {
+  auto transformed = transform_by_sort(data, vis);
+  auto transformed_failed = transform_by_sort_failed(data, vis);
+  for (auto& [sort, data_points] : transformed) {
+    auto error_points = transformed_failed[sort];
+    if (vis.capacity_size() > 0) {
+      for (auto cap : vis.capacity()) {
+        decltype(data_points) filtered;
+        std::copy_if(data_points.begin(), data_points.end(), std::back_inserter(filtered),
+                     [cap](Result e) { return e.run_config().capacity() == cap; });
+        auto plotted = categorial_bar_plot2_internal(vis, filtered, error_points, sort, cap);
+        if (!plotted.ok()) {
+          return plotted;
+        }
+      }
+    } else {
+      if (auto plotted = categorial_bar_plot2_internal(vis, data_points, error_points, sort);
           !plotted.ok()) {
         return plotted;
       }

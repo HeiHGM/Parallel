@@ -63,6 +63,7 @@ message RunConfig {
   repeated int64 seeds = 9;      // if specified run this config multiple times with the seeds. The
                                  // running time limit is for all seeds combined.
   map<string, bool> bool_params = 10;
+  map<string, int64> int64_params = 11;
 }
 message Command {
   Hypergraph hypergraph = 1;
