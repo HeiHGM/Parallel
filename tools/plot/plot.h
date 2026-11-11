@@ -331,6 +331,9 @@ class VisualisationTool {
   absl::Status categorial_bar_plot_internal(Visualisation vis, std::vector<Result>& data,
                                             std::vector<FailedExperiment>& failed,
                                             std::string sort = "all", int cap = 0);
+  absl::Status categorial_bar_plot2_internal(Visualisation vis, std::vector<Result>& data,
+                                             std::vector<FailedExperiment>& failed,
+                                             std::string sort = "all", int cap = 0);
   absl::Status scatter_debug_plot(std::vector<ExperimentResult>& data, Visualisation vis);
   absl::Status scatter_debug_plot_internal(Visualisation vis, std::vector<Result>& data,
                                            std::vector<FailedExperiment>& failed,
@@ -343,6 +346,8 @@ class VisualisationTool {
                                        std::vector<FailedExperiment>& failed,
                                        std::string sort = "all", int cap = 0);
   absl::Status categorial_bar_plot(std::vector<ExperimentResult>& data, Visualisation vis);
+  absl::Status categorial_bar_plot2(std::vector<ExperimentResult>& data, Visualisation vis);
+
   absl::Status stats_debug(std::vector<ExperimentResult>& data, Visualisation vis);
 
   absl::Status stats_internal(Visualisation vis, std::vector<Result>& data,
