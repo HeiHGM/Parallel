@@ -1,5 +1,6 @@
 #include <Kokkos_Core.hpp>
 
+#include "utils/logging.h"
 #include "utils/range.h"
 namespace heihgm {
 namespace ds {
@@ -70,11 +71,11 @@ struct KokkosHypergraph {
   }
   auto pins(EdgeType e) {
     return heihgm::utils::PointerRange(Hedge_to_node.data() + Hedge_offsets(e),
-                                          Hedge_to_node.data() + Hedge_offsets(e + 1));
+                                       Hedge_to_node.data() + Hedge_offsets(e + 1));
   }
   auto incidentEdges(NodeType n) {
     return heihgm::utils::PointerRange(Hnode_to_edge.data() + Hnode_offsets(n),
-                                          Hnode_to_edge.data() + Hnode_offsets(n + 1));
+                                       Hnode_to_edge.data() + Hnode_offsets(n + 1));
   }
   auto edgeSize(EdgeType e) const { return Hedge_offsets(e + 1) - Hedge_offsets(e); }
   auto edgeWeight(EdgeType e) const { return Hedge_weights(e); }

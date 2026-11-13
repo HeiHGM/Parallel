@@ -10,6 +10,7 @@ cc_binary(
     ],
     deps = [
         ":app_io_cc_proto",
+        "//app/algorithms/bmatching",
         "//app/algorithms/matching",
         "//app/algorithms/streaming/matching",
         "//utils:logging",
@@ -53,6 +54,7 @@ cuda_library(
     }),
     deps = [
         ":app_io_cc_proto",
+        "//app/algorithms/bmatching",
         "//app/algorithms/matching",
         "//app/algorithms/streaming/matching",
         "//utils:logging",

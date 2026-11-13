@@ -1,20 +1,46 @@
 # HeiHGM/Parallel
 
 
-HeiHGM/Parallel is a program for running hypergraph matchings on GPUs and multicore CPU.
+HeiHGM/Parallel is a program for running hypergraph matchings and b-matchings on GPUs and multicore CPU.
 If you use it in an academic setting please cite our paper:
 
+**Hypergraph Matching**
 ```
-@misc{reinstädtler2026efficientparallelalgorithmshypergraph,
-      title={Efficient Parallel Algorithms for Hypergraph Matching}, 
-      author={Henrik Reinstädtler and Christian Schulz and Nodari Sitchinava and Fabian Walliser},
-      year={2026},
-      eprint={2602.22976},
-      archivePrefix={arXiv},
-      primaryClass={cs.DS},
-      url={https://arxiv.org/abs/2602.22976}, 
+@InProceedings{10.1007/978-3-032-35251-4_36,
+author="Reinst{\"a}dtler, Henrik
+and Schulz, Christian
+and Sitchinava, Nodari
+and Walliser, Fabian",
+editor="Torquati, Massimo
+and Mencagli, Gabriele
+and Cardellini, Valeria
+and Antelmi, Alessia
+and Medi{\'{c}}, Doriana",
+title="Efficient Parallel Algorithms for Hypergraph Matching",
+booktitle="Euro-Par 2026: Parallel Processing",
+year="2027",
+publisher="Springer Nature Switzerland",
+address="Cham",
+pages="526--540",
+isbn="978-3-032-35251-4"
 }
 ```
+
+**Hypergraph b-Matching**
+
+```
+@misc{bakhshan2026parallelgreedyalgorithmmaximal,
+      title={A Parallel Greedy Algorithm for Maximal b-Matching in Hypergraphs}, 
+      author={Saeed Bakhshan and Daniel Grosu and Henrik Reinstädtler and Christian Schulz},
+      year={2026},
+      eprint={2611.15615},
+      archivePrefix={arXiv},
+      primaryClass={cs.DS},
+      url={https://arxiv.org/abs/2611.15615}, 
+}
+```
+
+To Appear in ACDA'27
 
 ## dependencies
 
@@ -52,6 +78,7 @@ Compilation:
 CXX=nvcc_wrapper bazel build -c opt app:kokkos_app --define cuda=enabled --@rules_cuda//cuda:archs="compute_86:compute_86,sm_86"
 ```
 
+### Hypergraph Matching
 
 Running:
 
@@ -68,7 +95,14 @@ Kokkos (compile with CUDA for automatic GPU selection):
 ./bazel-bin/app/kokkos_app --command_textproto 'command:"run" hypergraph {    file_path: "path/to/hgr"    format: "hgr" } config { algorithm_configs{algorithm_name: "to_kokkos" data_structure:"empty_hypergraph"}  algorithm_configs{algorithm_name: "local_max_crcw_xorshift" } capacity: 1 short_name: "HLM:K (GPU)" }' --seed 1234
 ```
 
+### Hypergraph b-Matching
 
+Running
+
+```
+export CUDA_MODULE_LOADING=EAGER # This is important because otherwise CUDA will lazy load code
+./bazel-bin/app/kokkos_app --command_textproto 'command:"run" hypergraph {    file_path: "path/to/hgr"    format: "hgr" } config { algorithm_configs{algorithm_name: "to_cuda_b" data_structure:"empty_hypergraph_b"}  algorithm_configs{algorithm_name: "pghm_crcw" } capacity: 1 short_name: "Pb-bM" }' --seed 1234
+```
 
 
 ## One of Computation of Competitors
