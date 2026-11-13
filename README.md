@@ -6,19 +6,41 @@ If you use it in an academic setting please cite our paper:
 
 **Hypergraph Matching**
 ```
-@misc{reinstädtler2026efficientparallelalgorithmshypergraph,
-      title={Efficient Parallel Algorithms for Hypergraph Matching}, 
-      author={Henrik Reinstädtler and Christian Schulz and Nodari Sitchinava and Fabian Walliser},
-      year={2026},
-      eprint={2602.22976},
-      archivePrefix={arXiv},
-      primaryClass={cs.DS},
-      url={https://arxiv.org/abs/2602.22976}, 
+@InProceedings{10.1007/978-3-032-35251-4_36,
+author="Reinst{\"a}dtler, Henrik
+and Schulz, Christian
+and Sitchinava, Nodari
+and Walliser, Fabian",
+editor="Torquati, Massimo
+and Mencagli, Gabriele
+and Cardellini, Valeria
+and Antelmi, Alessia
+and Medi{\'{c}}, Doriana",
+title="Efficient Parallel Algorithms for Hypergraph Matching",
+booktitle="Euro-Par 2026: Parallel Processing",
+year="2027",
+publisher="Springer Nature Switzerland",
+address="Cham",
+pages="526--540",
+isbn="978-3-032-35251-4"
 }
 ```
 
 **Hypergraph b-Matching**
 
+```
+@misc{bakhshan2026parallelgreedyalgorithmmaximal,
+      title={A Parallel Greedy Algorithm for Maximal b-Matching in Hypergraphs}, 
+      author={Saeed Bakhshan and Daniel Grosu and Henrik Reinstädtler and Christian Schulz},
+      year={2026},
+      eprint={2611.15615},
+      archivePrefix={arXiv},
+      primaryClass={cs.DS},
+      url={https://arxiv.org/abs/2611.15615}, 
+}
+```
+
+To Appear in ACDA'27
 
 ## dependencies
 
