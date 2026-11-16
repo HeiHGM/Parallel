@@ -40,7 +40,7 @@ isbn="978-3-032-35251-4"
 }
 ```
 
-To Appear in ACDA'27
+To Appear in ACDA'27. You can find the data set, an archived version of this code at https://zenodo.org/records/24085030.
 
 ## dependencies
 
